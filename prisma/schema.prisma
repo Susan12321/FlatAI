@@ -1,0 +1,84 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(tenant)
+  createdAt    DateTime @default(now())
+
+  properties Property[] // relation: properties listed by this user
+  bookings   Booking[]  // relation: bookings made by this user (as tenant)
+  reviews    Review[]   // relation: reviews written by this user
+}
+
+model Property {
+  id            Int      @id @default(autoincrement())
+  landlordId    Int
+  title         String
+  description   String?
+  address       String
+  city          String
+  postalCode    String
+  rent          Float
+  availableFrom DateTime
+  createdAt     DateTime @default(now())
+
+  landlord User            @relation(fields: [landlordId], references: [id])
+  images   PropertyImage[]
+  bookings Booking[]
+  reviews  Review[]
+}
+
+model PropertyImage {
+  id         Int    @id @default(autoincrement())
+  propertyId Int
+  imageUrl   String
+
+  property Property @relation(fields: [propertyId], references: [id])
+}
+
+model Booking {
+  id          Int           @id @default(autoincrement())
+  propertyId  Int
+  tenantId    Int
+  status      BookingStatus @default(pending)
+  bookingDate DateTime      @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id])
+  tenant   User     @relation(fields: [tenantId], references: [id])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  propertyId Int
+  tenantId   Int
+  rating     Int      // 1-5 stars
+  reviewText String?
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id])
+  tenant   User     @relation(fields: [tenantId], references: [id])
+
+  @@unique([propertyId, tenantId]) // One review per tenant per property
+}
+
+enum Role {
+  tenant
+  landlord
+  admin
+}
+
+enum BookingStatus {
+  pending
+  approved
+  rejected
+}
